@@ -1,23 +1,22 @@
 pluginManagement {
     repositories {
-        google {
-            content {
-                includeGroupByRegex("com\\.android.*")
-                includeGroupByRegex("com\\.google.*")
-                includeGroupByRegex("androidx.*")
-            }
-        }
-        mavenCentral()
         gradlePluginPortal()
-    }
-}
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    repositories {
         google()
         mavenCentral()
     }
+    plugins {
+        id("com.android.application") version "8.6.0"
+        id("org.jetbrains.kotlin.android") version "1.9.0"
+    }
 }
+//
+//dependencyResolutionManagement(fun DependencyResolutionManagement.() {
+//    versionCatalogs {
+//        create("libs") {
+//            from(files("gradle/libs.versions.toml"))
+//        }
+//    }
+//})
 
 rootProject.name = "BluetoothManagerApp"
 include(":app")

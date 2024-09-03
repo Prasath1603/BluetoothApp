@@ -16,8 +16,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -26,7 +25,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -41,11 +39,13 @@ class MainActivity : ComponentActivity() {
     private fun requestBluetoothPermissions() {
         val permissions = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
         }
         if (permissions.isNotEmpty()) {
@@ -140,13 +140,17 @@ fun BluetoothAdapter.scanForDevices(context: Context): List<BluetoothDevice> {
     context.registerReceiver(discoveryReceiver, filter)
     startDiscovery()
 
+    // Unregister receiver after discovery is done
+    // You might want to unregister it when you stop discovery or in onDestroy of activity
+    context.unregisterReceiver(discoveryReceiver)
+
     return devices
 }
 
 @SuppressLint("MissingPermission")
 fun BluetoothDevice.isConnected(): Boolean {
     // Implement logic to check if the device is currently connected
-    // Placeholder return value; replace with actual connection check
+    // This is a placeholder return value; replace with actual connection check
     return false
 }
 
