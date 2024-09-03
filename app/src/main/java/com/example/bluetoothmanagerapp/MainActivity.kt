@@ -15,7 +15,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -67,6 +68,9 @@ fun BluetoothApp() {
     val lifecycleOwner = LocalLifecycleOwner.current
     val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     val currentlyConnectedDevice = remember { mutableStateOf<BluetoothDevice?>(null) }
+    val availableDevices = remember { mutableStateOf<List<BluetoothDevice>>(emptyList()) }
+
+    // BroadcastReceiver to handle discovered devices
     val discoveryReceiver = rememberUpdatedState(
         object : BroadcastReceiver() {
             @SuppressLint("MissingPermission")
@@ -74,9 +78,11 @@ fun BluetoothApp() {
                 when (intent?.action) {
                     BluetoothDevice.ACTION_FOUND -> {
                         val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                        // Update connected device if it matches the currently connected device
-                        if (device?.bondState == BluetoothDevice.BOND_BONDED && device.isConnected()) {
-                            currentlyConnectedDevice.value = device
+                        device?.let {
+                            // Update available devices list if it's not already present
+                            if (!availableDevices.value.contains(device)) {
+                                availableDevices.value = availableDevices.value + device
+                            }
                         }
                     }
                 }
@@ -129,6 +135,36 @@ fun BluetoothApp() {
             fontSize = 18.sp,
             modifier = Modifier.padding(16.dp)
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Available Devices",
+            fontSize = 20.sp,
+            color = Color.White,
+            modifier = Modifier
+                .background(Color.Blue)
+                .padding(8.dp)
+                .fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyColumn {
+            items(availableDevices.value) { device ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(device.name ?: "Unnamed device", fontSize = 16.sp)
+                    Button(onClick = { connectToDevice(device) }) {
+                        Text("Connect")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -143,4 +179,11 @@ fun BluetoothDevice.isConnected(): Boolean {
 fun hasBluetoothPermissions(context: Context): Boolean {
     return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+}
+
+@SuppressLint("MissingPermission")
+fun connectToDevice(device: BluetoothDevice) {
+    // Implement your connection logic here
+    // This typically involves creating a BluetoothGatt object and connecting to the device
+    Log.d("BluetoothApp", "Attempting to connect to ${device.name}")
 }
