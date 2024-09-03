@@ -23,6 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.ui.platform.LocalContext
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +37,7 @@ class MainActivity : ComponentActivity() {
         requestBluetoothPermissions()
 
         setContent {
-            BluetoothApp(this)
+            BluetoothApp()
         }
     }
 
@@ -56,7 +61,24 @@ class MainActivity : ComponentActivity() {
 
 @SuppressLint("MissingPermission")
 @Composable
-fun BluetoothApp(context: Context) {
+fun BluetoothApp() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "main") {
+        composable("main") {
+            MainScreen(navController)
+        }
+        composable("device/{deviceName}") { backStackEntry ->
+            DeviceDetailsScreen(
+                deviceName = backStackEntry.arguments?.getString("deviceName") ?: "Unknown Device"
+            )
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+@Composable
+fun MainScreen(navController: NavHostController) {
+    val context = LocalContext.current
     val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     val currentlyConnectedDevice = remember { mutableStateOf<BluetoothDevice?>(null) }
     val previouslyConnectedDevices = remember { mutableStateOf(listOf<BluetoothDevice>()) }
@@ -77,24 +99,19 @@ fun BluetoothApp(context: Context) {
             val bondedDevices = bluetoothAdapter.bondedDevices ?: emptySet()
             currentlyConnectedDevice.value = bondedDevices.find { it.isConnected() }
             previouslyConnectedDevices.value = bondedDevices.filter { !it.isConnected() }
-            availableDevices.value = bluetoothAdapter.scanForDevices(context)
+            availableDevices.value = scanForDevices(context)
         } else {
             Log.e("BluetoothApp", "Missing Bluetooth permissions")
         }
     }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Currently Connected Device", fontSize = 20.sp)
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            item {
-                Text(
-                    currentlyConnectedDevice.value?.name ?: "No device connected",
-                    fontSize = 16.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        // Header for Currently Connected Device
+        Text(
+            text = "Currently Connected Device: ${currentlyConnectedDevice.value?.name ?: "None"}",
+            fontSize = 20.sp,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
         Text("Previously Connected Devices", fontSize = 20.sp)
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
@@ -113,8 +130,10 @@ fun BluetoothApp(context: Context) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(device.name ?: "Unnamed device", fontSize = 16.sp)
-                    Button(onClick = { /* Connect to this device */ }) {
-                        Text("Connect")
+                    Button(onClick = {
+                        navController.navigate("device/${device.name}")
+                    }) {
+                        Text("View Details")
                     }
                 }
             }
@@ -123,7 +142,32 @@ fun BluetoothApp(context: Context) {
 }
 
 @SuppressLint("MissingPermission")
-fun BluetoothAdapter.scanForDevices(context: Context): List<BluetoothDevice> {
+@Composable
+fun DeviceDetailsScreen(deviceName: String) {
+    val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+    val device = bluetoothAdapter?.bondedDevices?.find { it.name == deviceName }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text("Device Details", fontSize = 24.sp, modifier = Modifier.padding(bottom = 16.dp))
+
+        if (device == null) {
+            Text("Device not found", fontSize = 20.sp)
+            return
+        }
+
+        Text("Name: ${device.name}", fontSize = 20.sp)
+        Text("Address: ${device.address}", fontSize = 20.sp)
+        // Add more details if needed
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = { /* Implement disconnect logic */ }) {
+            Text("Disconnect")
+        }
+    }
+}
+
+@SuppressLint("MissingPermission")
+fun scanForDevices(context: Context): List<BluetoothDevice> {
     val devices = mutableListOf<BluetoothDevice>()
     val discoveryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -138,7 +182,7 @@ fun BluetoothAdapter.scanForDevices(context: Context): List<BluetoothDevice> {
 
     val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
     context.registerReceiver(discoveryReceiver, filter)
-    startDiscovery()
+    BluetoothAdapter.getDefaultAdapter().startDiscovery()
 
     // Unregister receiver after discovery is done
     // You might want to unregister it when you stop discovery or in onDestroy of activity
