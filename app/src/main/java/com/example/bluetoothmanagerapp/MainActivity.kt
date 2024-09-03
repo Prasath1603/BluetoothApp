@@ -55,11 +55,17 @@ class MainActivity : ComponentActivity() {
         ) {
             permissions.add(Manifest.permission.BLUETOOTH_SCAN)
         }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
         if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, permissions.toTypedArray(), 1)
         }
     }
 }
+
 @SuppressLint("MissingPermission")
 @Composable
 fun BluetoothApp() {
@@ -78,6 +84,7 @@ fun BluetoothApp() {
                     BluetoothDevice.ACTION_FOUND -> {
                         val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                         device?.let {
+                            Log.d("BluetoothApp", "Device found: ${device.name} - ${device.address}")
                             // Update available devices list if it's not already present
                             val updatedDevices = availableDevices.value.toMutableList()
                             if (!updatedDevices.contains(device)) {
@@ -85,6 +92,12 @@ fun BluetoothApp() {
                                 availableDevices.value = updatedDevices
                             }
                         }
+                    }
+                    BluetoothAdapter.ACTION_DISCOVERY_STARTED -> {
+                        Log.d("BluetoothApp", "Bluetooth discovery started")
+                    }
+                    BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                        Log.d("BluetoothApp", "Bluetooth discovery finished")
                     }
                 }
             }
@@ -94,8 +107,13 @@ fun BluetoothApp() {
     LaunchedEffect(Unit) {
         if (hasBluetoothPermissions(context)) {
             if (bluetoothAdapter?.isEnabled == true) {
+                Log.d("BluetoothApp", "Starting Bluetooth discovery")
                 // Register receiver for Bluetooth device discovery
-                val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+                val filter = IntentFilter().apply {
+                    addAction(BluetoothDevice.ACTION_FOUND)
+                    addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
+                    addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+                }
                 context.registerReceiver(discoveryReceiver.value, filter)
                 bluetoothAdapter.startDiscovery()
 
@@ -103,6 +121,7 @@ fun BluetoothApp() {
                 lifecycleOwner.lifecycle.addObserver(object : LifecycleObserver {
                     @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
                     fun onDestroy() {
+                        Log.d("BluetoothApp", "Stopping Bluetooth discovery and unregistering receiver")
                         bluetoothAdapter?.cancelDiscovery()
                         context.unregisterReceiver(discoveryReceiver.value)
                     }
@@ -135,8 +154,26 @@ fun BluetoothApp() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(
-            text = currentlyConnectedDevice.value?.name ?: "No device connected",
+        // Show currently connected device details
+        currentlyConnectedDevice.value?.let { device ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(device.name ?: "Unnamed device", fontSize = 18.sp)
+                Button(onClick = {
+                    // Start the DetailsActivity with the connected device
+                    val intent = Intent(context, DetailsActivity::class.java)
+                    intent.putExtra("DEVICE", device)
+                    context.startActivity(intent)
+                }) {
+                    Text("View Details")
+                }
+            }
+        } ?: Text(
+            text = "No device connected",
             fontSize = 18.sp,
             modifier = Modifier.padding(16.dp)
         )
@@ -172,8 +209,13 @@ fun BluetoothApp() {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(device.name ?: "Unnamed device", fontSize = 16.sp)
-                        Button(onClick = { connectToDevice(device) }) {
-                            Text("Connect")
+                        Button(onClick = {
+                            // Start the DetailsActivity with the selected device
+                            val intent = Intent(context, DetailsActivity::class.java)
+                            intent.putExtra("DEVICE", device)
+                            context.startActivity(intent)
+                        }) {
+                            Text("View Details")
                         }
                     }
                 }
@@ -192,12 +234,6 @@ fun BluetoothDevice.isConnected(): Boolean {
 
 fun hasBluetoothPermissions(context: Context): Boolean {
     return ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
-}
-
-@SuppressLint("MissingPermission")
-fun connectToDevice(device: BluetoothDevice) {
-    // Implement your connection logic here
-    // This typically involves creating a BluetoothGatt object and connecting to the device
-    Log.d("BluetoothApp", "Attempting to connect to ${device.name}")
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 }
