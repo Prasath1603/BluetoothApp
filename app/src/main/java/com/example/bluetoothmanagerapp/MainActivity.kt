@@ -60,7 +60,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
 @SuppressLint("MissingPermission")
 @Composable
 fun BluetoothApp() {
@@ -80,8 +79,10 @@ fun BluetoothApp() {
                         val device: BluetoothDevice? = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                         device?.let {
                             // Update available devices list if it's not already present
-                            if (!availableDevices.value.contains(device)) {
-                                availableDevices.value = availableDevices.value + device
+                            val updatedDevices = availableDevices.value.toMutableList()
+                            if (!updatedDevices.contains(device)) {
+                                updatedDevices.add(device)
+                                availableDevices.value = updatedDevices
                             }
                         }
                     }
@@ -92,23 +93,27 @@ fun BluetoothApp() {
 
     LaunchedEffect(Unit) {
         if (hasBluetoothPermissions(context)) {
-            // Register receiver for Bluetooth device discovery
-            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
-            context.registerReceiver(discoveryReceiver.value, filter)
-            bluetoothAdapter?.startDiscovery()
+            if (bluetoothAdapter?.isEnabled == true) {
+                // Register receiver for Bluetooth device discovery
+                val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+                context.registerReceiver(discoveryReceiver.value, filter)
+                bluetoothAdapter.startDiscovery()
 
-            // Cleanup: Stop discovery and unregister receiver when activity is destroyed
-            lifecycleOwner.lifecycle.addObserver(object : LifecycleObserver {
-                @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-                fun onDestroy() {
-                    bluetoothAdapter?.cancelDiscovery()
-                    context.unregisterReceiver(discoveryReceiver.value)
-                }
-            })
+                // Cleanup: Stop discovery and unregister receiver when activity is destroyed
+                lifecycleOwner.lifecycle.addObserver(object : LifecycleObserver {
+                    @OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+                    fun onDestroy() {
+                        bluetoothAdapter?.cancelDiscovery()
+                        context.unregisterReceiver(discoveryReceiver.value)
+                    }
+                })
 
-            // Update the currently connected device
-            currentlyConnectedDevice.value = bluetoothAdapter.bondedDevices
-                ?.find { it.isConnected() }
+                // Update the currently connected device
+                currentlyConnectedDevice.value = bluetoothAdapter.bondedDevices
+                    ?.find { it.isConnected() }
+            } else {
+                Log.e("BluetoothApp", "Bluetooth is not enabled")
+            }
         } else {
             Log.e("BluetoothApp", "Missing Bluetooth permissions")
         }
@@ -150,17 +155,26 @@ fun BluetoothApp() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn {
-            items(availableDevices.value) { device ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(device.name ?: "Unnamed device", fontSize = 16.sp)
-                    Button(onClick = { connectToDevice(device) }) {
-                        Text("Connect")
+        if (availableDevices.value.isEmpty()) {
+            Text(
+                text = "No devices found",
+                fontSize = 16.sp,
+                modifier = Modifier.padding(16.dp),
+                color = Color.Gray
+            )
+        } else {
+            LazyColumn {
+                items(availableDevices.value) { device ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(device.name ?: "Unnamed device", fontSize = 16.sp)
+                        Button(onClick = { connectToDevice(device) }) {
+                            Text("Connect")
+                        }
                     }
                 }
             }
